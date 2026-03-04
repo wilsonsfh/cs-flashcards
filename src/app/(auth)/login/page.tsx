@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [cooldown, setCooldown] = useState(0)
   const supabase = createClient()
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setInterval(() => setCooldown(c => c - 1), 1000)
+    return () => clearInterval(timer)
+  }, [cooldown])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -29,6 +36,7 @@ export default function LoginPage() {
       setError(error.message)
     } else {
       setSent(true)
+      setCooldown(60)
     }
     setLoading(false)
   }
@@ -48,8 +56,12 @@ export default function LoginPage() {
               <p className="text-sm text-muted-foreground">
                 Check your email for a magic link to sign in.
               </p>
-              <Button variant="ghost" onClick={() => setSent(false)}>
-                Try again
+              <Button
+                variant="ghost"
+                onClick={() => setSent(false)}
+                disabled={cooldown > 0}
+              >
+                {cooldown > 0 ? `Try again in ${cooldown}s` : 'Try again'}
               </Button>
             </div>
           ) : (

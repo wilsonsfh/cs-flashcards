@@ -9,6 +9,10 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      await fetch(`${origin}/api/init-user`, {
+        method: 'POST',
+        headers: { cookie: request.headers.get('cookie') ?? '' },
+      }).catch(() => {})
       return NextResponse.redirect(`${origin}/`)
     }
   }

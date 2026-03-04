@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useDebounce } from '@/lib/hooks/useDebounce'
 import { createClient } from '@/lib/supabase/client'
 import { createEmptyCard } from 'ts-fsrs'
 import { Button } from '@/components/ui/button'
@@ -54,19 +55,24 @@ export function CardsClient({ initialCards, totalCount, currentPage, pageSize, u
   const [back, setBack] = useState('')
   const [category, setCategory] = useState<CardCategory>('general')
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
+  const debouncedQuery = useDebounce(searchQuery, 300)
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
+  useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
-    if (searchQuery) {
-      params.set('q', searchQuery)
+    if (debouncedQuery) {
+      params.set('q', debouncedQuery)
     } else {
       params.delete('q')
     }
     params.delete('page')
     router.push(`/cards?${params.toString()}`)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery])
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
   }
 
   function handleCategoryFilter(value: string) {
@@ -219,7 +225,6 @@ export function CardsClient({ initialCards, totalCount, currentPage, pageSize, u
               className="pl-10"
             />
           </div>
-          <Button type="submit" variant="secondary">Search</Button>
         </form>
         <Select
           value={searchParams.get('category') ?? 'all'}
