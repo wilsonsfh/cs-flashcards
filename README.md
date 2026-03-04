@@ -4,6 +4,13 @@ A personal spaced repetition flashcard app for mastering computer science fundam
 
 Seeded with 1,792 cards from [jwasham/computer-science-flash-cards](https://github.com/jwasham/computer-science-flash-cards) — the companion to the famous [Coding Interview University](https://github.com/jwasham/coding-interview-university) study plan.
 
+## Live Demo
+
+**[cs-flashcards-ruby.vercel.app](https://cs-flashcards-ruby.vercel.app)**
+
+Sign in with your email (magic link) → study due cards → rate each card (Again / Hard / Good / Easy) → come back daily.
+Cards from [Coding Interview University](https://github.com/jwasham/coding-interview-university), scheduled by the FSRS spaced repetition algorithm.
+
 ## Why This Exists
 
 ### The Forgetting Curve Problem
