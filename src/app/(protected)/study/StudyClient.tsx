@@ -1,13 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useMemo } from 'react'
 import { useStudySession } from '@/lib/hooks/useStudySession'
 import { FlashCard } from '@/components/study/FlashCard'
 import { RatingButtons } from '@/components/study/RatingButtons'
 import { StudyProgress } from '@/components/study/StudyProgress'
 import { EmptyState } from '@/components/study/EmptyState'
 import { Button } from '@/components/ui/button'
-import type { CardWithFsrs, CardCategory } from '@/types/database'
+import type { CardWithFsrs } from '@/types/database'
 
 const CATEGORY_LABELS: Record<string, string> = {
   algorithms: 'Algorithms',
@@ -32,33 +32,38 @@ const CATEGORY_ORDER: string[] = [
 interface StudyClientProps {
   initialCards: CardWithFsrs[]
   categoryCounts: Record<string, number>
-  activeCategory?: CardCategory
 }
 
-export function StudyClient({ initialCards, categoryCounts, activeCategory }: StudyClientProps) {
-  const router = useRouter()
+export function StudyClient({ initialCards, categoryCounts }: StudyClientProps) {
   const {
     currentCard,
-    sessionState,
+    isFlipped,
+    isComplete,
     intervalPreviews,
     reviewCount,
     totalCards,
     flipCard,
     submitRating,
+    activeCategory,
+    switchCategory,
+    reviewedCardIds,
   } = useStudySession(initialCards)
 
-  const totalDue = Object.values(categoryCounts).reduce((a, b) => a + b, 0)
+  // Dynamic category counts that decrease as cards are reviewed
+  const dynamicCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const card of initialCards) {
+      if (!reviewedCardIds.has(card.id)) {
+        counts[card.category] = (counts[card.category] ?? 0) + 1
+      }
+    }
+    return counts
+  }, [initialCards, reviewedCardIds])
+
+  const totalDue = Object.values(dynamicCounts).reduce((a, b) => a + b, 0)
   const visibleCategories = CATEGORY_ORDER.filter(cat => (categoryCounts[cat] ?? 0) > 0)
 
-  function selectCategory(category?: string) {
-    if (category) {
-      router.push(`/study?category=${category}`)
-    } else {
-      router.push('/study')
-    }
-  }
-
-  if (sessionState === 'complete') {
+  if (isComplete) {
     return <EmptyState reviewCount={reviewCount} />
   }
 
@@ -72,7 +77,7 @@ export function StudyClient({ initialCards, categoryCounts, activeCategory }: St
           <Button
             variant={!activeCategory ? 'default' : 'outline'}
             size="sm"
-            onClick={() => selectCategory()}
+            onClick={() => switchCategory(null)}
           >
             All ({totalDue})
           </Button>
@@ -81,9 +86,9 @@ export function StudyClient({ initialCards, categoryCounts, activeCategory }: St
               key={cat}
               variant={activeCategory === cat ? 'default' : 'outline'}
               size="sm"
-              onClick={() => selectCategory(cat)}
+              onClick={() => switchCategory(cat)}
             >
-              {CATEGORY_LABELS[cat] ?? cat} ({categoryCounts[cat]})
+              {CATEGORY_LABELS[cat] ?? cat} ({dynamicCounts[cat] ?? 0})
             </Button>
           ))}
         </div>
@@ -93,11 +98,11 @@ export function StudyClient({ initialCards, categoryCounts, activeCategory }: St
 
       <FlashCard
         card={currentCard}
-        isFlipped={sessionState === 'back'}
+        isFlipped={isFlipped}
         onFlip={flipCard}
       />
 
-      {sessionState === 'back' && intervalPreviews && (
+      {isFlipped && intervalPreviews && (
         <RatingButtons
           intervalPreviews={intervalPreviews}
           onRate={submitRating}

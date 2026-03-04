@@ -28,14 +28,14 @@ Both scripts require `.env.local` with `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SER
 - `(auth)/` — unauthenticated routes (`/login`, `/auth/callback`)
 - `(protected)/` — all authenticated routes. The layout provides the sidebar + mobile nav shell
 - `(protected)/page.tsx` — dashboard (server component, runs parallel Supabase queries)
-- `(protected)/study/page.tsx` + `StudyClient.tsx` — study flow. Page is a server component that fetches due cards and category counts, passes to the client component. Category filter lives in `?category=` URL param (server re-fetch on change).
+- `(protected)/study/page.tsx` + `StudyClient.tsx` — study flow. Page is a server component that fetches all due cards and category counts, passes to the client component. Category switching is fully client-side (no URL params, no server re-fetch).
 - `(protected)/cards/` — card management CRUD
 
 ### Data flow for study sessions
 
-1. `study/page.tsx` fetches up to 50 due cards from Supabase (server-side, with RLS)
-2. Passes `CardWithFsrs[]` to `StudyClient`, which calls `useStudySession`
-3. `useStudySession` (client hook) manages local flip/rating state, calls `lib/fsrs/scheduler.ts` to compute next intervals, then writes back to `card_fsrs_state` and `review_logs` via the browser Supabase client
+1. `study/page.tsx` fetches up to 200 due cards (all categories) from Supabase (server-side, with RLS)
+2. Passes `CardWithFsrs[]` and `categoryCounts` to `StudyClient`, which calls `useStudySession`
+3. `useStudySession` (client hook) manages `activeCategory`, `reviewedCardIds`, and `isFlipped` state. Category switching is instant (client-side filter, no server round-trip). Reviewed cards are tracked globally across category switches. Calls `lib/fsrs/scheduler.ts` to compute next intervals, then writes back to `card_fsrs_state` and `review_logs` via the browser Supabase client
 
 ### Supabase client pattern
 

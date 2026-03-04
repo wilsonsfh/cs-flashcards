@@ -6,18 +6,23 @@ import { getSchedulingOptions, formatInterval } from '@/lib/fsrs/scheduler'
 import { createClient } from '@/lib/supabase/client'
 import type { CardWithFsrs } from '@/types/database'
 
-export type StudySessionState = 'front' | 'back' | 'complete'
-
 export function useStudySession(initialCards: CardWithFsrs[]) {
   const supabase = createClient()
-  const [cards] = useState(initialCards)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [sessionState, setSessionState] = useState<StudySessionState>(
-    initialCards.length === 0 ? 'complete' : 'front'
-  )
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [reviewedCardIds, setReviewedCardIds] = useState<Set<string>>(new Set())
+  const [isFlipped, setIsFlipped] = useState(false)
   const [reviewCount, setReviewCount] = useState(0)
 
-  const currentCard = cards[currentIndex] ?? null
+  const availableCards = useMemo(() => {
+    let filtered = initialCards
+    if (activeCategory) {
+      filtered = filtered.filter(c => c.category === activeCategory)
+    }
+    return filtered.filter(c => !reviewedCardIds.has(c.id))
+  }, [initialCards, activeCategory, reviewedCardIds])
+
+  const currentCard = availableCards[0] ?? null
+  const isComplete = availableCards.length === 0
 
   const schedulingOptions = useMemo(() => {
     if (!currentCard?.card_fsrs_state) return null
@@ -35,10 +40,10 @@ export function useStudySession(initialCards: CardWithFsrs[]) {
   }, [schedulingOptions])
 
   const flipCard = useCallback(() => {
-    if (sessionState === 'front') {
-      setSessionState('back')
+    if (!isFlipped) {
+      setIsFlipped(true)
     }
-  }, [sessionState])
+  }, [isFlipped])
 
   const submitRating = useCallback(async (rating: Rating) => {
     if (!currentCard || !schedulingOptions) return
@@ -46,10 +51,10 @@ export function useStudySession(initialCards: CardWithFsrs[]) {
     const chosen = schedulingOptions[rating]
     const now = new Date()
 
-    const nextIndex = currentIndex + 1
+    // Track reviewed card and advance
+    setReviewedCardIds(prev => new Set(prev).add(currentCard.id))
     setReviewCount(r => r + 1)
-    setCurrentIndex(nextIndex)
-    setSessionState(nextIndex >= cards.length ? 'complete' : 'front')
+    setIsFlipped(false)
 
     // Persist to Supabase
     await Promise.all([
@@ -85,15 +90,25 @@ export function useStudySession(initialCards: CardWithFsrs[]) {
           reviewed_at: now.toISOString(),
         }),
     ])
-  }, [currentCard, schedulingOptions, currentIndex, cards.length, supabase])
+  }, [currentCard, schedulingOptions, supabase])
+
+  const switchCategory = useCallback((category: string | null) => {
+    setActiveCategory(category)
+    setIsFlipped(false)
+  }, [])
 
   return {
     currentCard,
-    sessionState,
+    isFlipped,
+    isComplete,
     intervalPreviews,
     reviewCount,
-    totalCards: cards.length,
+    totalCards: availableCards.length,
+    remainingCards: availableCards.length,
     flipCard,
     submitRating,
+    activeCategory,
+    switchCategory,
+    reviewedCardIds,
   }
 }
