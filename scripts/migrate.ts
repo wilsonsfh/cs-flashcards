@@ -1,11 +1,10 @@
+import dotenv from 'dotenv'
+dotenv.config({ path: '.env.local' })
+
 import Database from 'better-sqlite3'
 import { createClient } from '@supabase/supabase-js'
 import { createEmptyCard } from 'ts-fsrs'
-
-const CATEGORY_MAP: Record<number, string> = {
-  1: 'general',
-  2: 'code',
-}
+import { classifyCard } from './classify'
 
 async function migrate() {
   const dbPath = process.argv[2]
@@ -42,7 +41,7 @@ async function migrate() {
       user_id: userId,
       front: row.front,
       back: row.back,
-      category: CATEGORY_MAP[row.type] ?? 'custom',
+      category: classifyCard(row.front, row.back, row.type),
       tags: [],
       source_id: row.id,
     }))

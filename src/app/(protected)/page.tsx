@@ -6,6 +6,26 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { BookOpen } from 'lucide-react'
 
+const CATEGORY_LABELS: Record<string, string> = {
+  algorithms: 'Algorithms',
+  data_structures: 'Data Structures',
+  os: 'OS',
+  networking: 'Networking',
+  code: 'Code',
+  general: 'General',
+  custom: 'Custom',
+}
+
+const CATEGORY_ORDER: string[] = [
+  'algorithms',
+  'data_structures',
+  'os',
+  'networking',
+  'code',
+  'general',
+  'custom',
+]
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -15,7 +35,7 @@ export default async function DashboardPage() {
   const now = new Date()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-  const [dueResult, statesResult, logsResult] = await Promise.all([
+  const [dueResult, statesResult, logsResult, categoryDueResult] = await Promise.all([
     supabase
       .from('card_fsrs_state')
       .select('*', { count: 'exact', head: true })
@@ -33,12 +53,28 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .gte('reviewed_at', thirtyDaysAgo.toISOString())
       .order('reviewed_at', { ascending: false }),
+
+    // Per-category due counts
+    supabase
+      .from('cards')
+      .select('category, card_fsrs_state!inner(due)')
+      .eq('user_id', user.id)
+      .lte('card_fsrs_state.due', now.toISOString()),
   ])
 
   const dueCount = dueResult.count ?? 0
   const totalCards = statesResult.data?.length ?? 0
   const masteryPct = computeMastery(statesResult.data ?? [])
   const streak = computeStreak(logsResult.data ?? [])
+
+  // Build category counts
+  const categoryCounts: Record<string, number> = {}
+  if (categoryDueResult.data) {
+    for (const card of categoryDueResult.data) {
+      categoryCounts[card.category] = (categoryCounts[card.category] ?? 0) + 1
+    }
+  }
+  const visibleCategories = CATEGORY_ORDER.filter(cat => (categoryCounts[cat] ?? 0) > 0)
 
   // Aggregate review logs by date
   const reviewsByDate = new Map<string, number>()
@@ -71,6 +107,19 @@ export default async function DashboardPage() {
           </Button>
         )}
       </div>
+
+      {/* Category quick-links */}
+      {visibleCategories.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {visibleCategories.map(cat => (
+            <Button key={cat} variant="outline" size="sm" asChild>
+              <Link href={`/study?category=${cat}`}>
+                {CATEGORY_LABELS[cat] ?? cat} ({categoryCounts[cat]})
+              </Link>
+            </Button>
+          ))}
+        </div>
+      )}
 
       <StatsGrid
         dueCount={dueCount}

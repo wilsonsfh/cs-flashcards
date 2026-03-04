@@ -63,12 +63,13 @@ create table review_logs (
 -- ============================================================
 -- INDEXES
 -- ============================================================
-create index idx_fsrs_due on card_fsrs_state(user_id, due asc) where due <= now();
+create index idx_fsrs_due on card_fsrs_state(user_id, due asc);
 create index idx_fsrs_state_new on card_fsrs_state(user_id, state) where state = 0;
 create index idx_review_logs_date on review_logs(user_id, reviewed_at desc);
 create index idx_cards_category on cards(user_id, category);
-create index idx_cards_search on cards using gin(to_tsvector('english', front || ' ' || back));
-
+create index idx_cards_search on cards using gin(
+  to_tsvector('english', coalesce(front, '') || ' ' || coalesce(back, ''))
+);
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
